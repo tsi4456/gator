@@ -2,16 +2,10 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/xml"
-	"fmt"
 	"html"
 	"io"
 	"net/http"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/tsi4456/gator/internal/database"
 )
 
 type RSSFeed struct {
@@ -60,36 +54,4 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
 		feed.Channel.Item[n].Description = html.UnescapeString(i.Description)
 	}
 	return &feed, nil
-}
-
-func scrapeFeeds(s *state) error {
-	nextFeed, err := s.db.GetNextFeedToFetch(context.Background())
-	if err != nil {
-		return err
-	}
-
-	err = s.db.MarkFeedFetched(context.Background(), nextFeed.ID)
-	if err != nil {
-		return err
-	}
-
-	feed, err := fetchFeed(context.Background(), nextFeed.Url)
-	if err != nil {
-		return err
-	}
-
-	for _, feedItem := range feed.Channel.Item {
-		pDate, err := time.Parse("Mon, 2 Jan 2006 15:04:05 -0700", feedItem.PubDate)
-		if err != nil {
-			return err
-		}
-		nullDesc := sql.NullString{String: feedItem.Description, Valid: true}
-		post, err := s.db.CreatePost(context.Background(), database.CreatePostParams{ID: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(), Title: feedItem.Title, Url: feedItem.Link, Description: nullDesc, PublishedAt: pDate, FeedID: nextFeed.ID})
-		if err != nil {
-			return err
-		}
-		fmt.Println(post.Title)
-		fmt.Println(post.PublishedAt)
-	}
-	return nil
 }
